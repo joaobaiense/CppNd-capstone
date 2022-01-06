@@ -31,8 +31,13 @@ auto calculate_ema = [](double yesterday, double today) -> double {
 struct transaction_t {
     Ochl ref;
     double refPrice;
+
+    double transactionPrice;
+    double previousPrice;
+
     double shares;
     bool purchase;
+    
 };
 
 class Portfolio {
@@ -86,7 +91,7 @@ public:
         // add to value 
         m_value += amount;
 
-        transaction_t newTransaction;
+        // transaction_t newTransaction;
         newTransaction.purchase = true;
         newTransaction.ref = *ref;
         newTransaction.refPrice = newPrice;
@@ -177,31 +182,32 @@ private:
     std::mutex m_mut;
 };
 
-void worker(std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>> *q, std::mutex *m, std::mutex *queueMutex, std::string t, int c, std::unordered_map<std::string, Ochl> *ma){
+void worker(std::shared_ptr<MessageQueue<Ochl>> q, std::mutex *m, std::mutex *queueMutex, std::string t, int c, std::unordered_map<std::string, Ochl> *ma){
 
     int day = 0;
     double smaStart = 0;
 
     double open, close, high, low;
 
-    m->lock();
+    // m->lock();
 
-    int thisThread = c;
+    // // int thisThread = c;
 
-    // std::cout << std::to_string(thisThread) << " " << " " 
-    // << std::this_thread::get_id()
-    // << " Worker for: " << t << std::endl;
+    // // std::cout << std::to_string(thisThread) << " " << " " 
+    // // << std::this_thread::get_id()
+    // // << " Worker for: " << t << std::endl;
 
-    m->unlock();
+    // m->unlock();
     
     while(true){
         // wait for a new value
-        queueMutex->lock();
-        auto elem = q->at(t);
-        auto maElem = ma->at(t);
-        queueMutex->unlock();
+        auto v = q->receive();
+        // queueMutex->lock();
+        // auto elem = q->at(t);
+        auto maElem = ma->at(v.ticker);
+        // queueMutex->unlock();
 
-        auto v = elem->receive();
+        // auto v = elem->receive();
 
         if ( day < kEMA_DAYS ){
             open += v.open;
@@ -224,10 +230,10 @@ void worker(std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>>
 
         // m->lock();
 
-        // std::cout << "[" << thisThread << "] Ticker update received: " << v.ticker << ": " << v.open << std::endl;
-        // // std::string s = std::string(" << Ticker update received: " ) + std::to_string(thisThread) + std::string(" ") + v.ticker + std::string(" ") + std::to_string(v.open) + " " ;
+        // std::cout << " << Ticker update received: " << v.ticker << ": " << v.open << std::endl;
+        // std::string s = std::string(" << Ticker update received: " ) + std::to_string(thisThread) + std::string(" ") + v.ticker + std::string(" ") + std::to_string(v.open) + " " ;
 
-        // // std::cout << s <<std::endl;
+        // std::cout << s <<std::endl;
 
         // m->unlock();
 
@@ -306,7 +312,8 @@ int main()
     ///////////////////////////////////////////////////////////////////////
 
     std::unordered_map<std::string, Ochl> sma;
-    std::shared_ptr<std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>>> q = std::make_shared<std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>>>();
+    // std::shared_ptr<std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>>> q = std::make_shared<std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>>>();
+    std::shared_ptr<MessageQueue<Ochl>> q = std::make_shared<MessageQueue<Ochl>>();
 
     std::vector<std::thread> threads;
 
@@ -317,13 +324,17 @@ int main()
 
         sma.insert({t, Ochl(0,t, 0, 0, 0, 0, 0)});
 
-        queueMutex.lock();
-        q->insert(std::make_pair(t, std::make_shared<MessageQueue<Ochl>>()));
-        queueMutex.unlock();
+        // queueMutex.lock();
+        // q->insert(std::make_pair(t, std::make_shared<MessageQueue<Ochl>>()));
+        // queueMutex.unlock();
 
-        threads.push_back(std::thread(worker, q.get(), &m, &queueMutex, t, counter, &sma));
+        // threads.push_back(std::thread(worker, q.get(), &m, &queueMutex, t, counter, &sma));
 
-        counter++;
+        // counter++;
+    }
+
+    for (int i = 0; i < 100; i++ ){
+        threads.push_back(std::thread(worker, q, &m, &queueMutex, std::string(""), counter, &sma));
     }
 
     std::cout << "Num Worker Threads: " << threads.size() << std::endl;
@@ -340,11 +351,11 @@ int main()
         // std::cout << " >> Sending " << tmp.ticker << std::endl; 
         // m.unlock();
 
-        queueMutex.lock();
-        auto elem = q->at(tmp.ticker);
-        queueMutex.unlock();
+        // queueMutex.lock();
+        // auto elem = q->at(tmp.ticker);
+        // queueMutex.unlock();
 
-        elem->send(std::move(tmp));
+        q->send(std::move(tmp));
 
         // std::this_thread::sleep_for(std::chrono::milliseconds(100));
         
