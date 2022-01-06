@@ -9,6 +9,7 @@
 #include <thread>
 #include <mutex>
 #include <set>
+#include <algorithm>
 
 const int kIDX_DATE = 0;
 const int kIDX_SYMBOL = 1;
@@ -18,10 +19,45 @@ const int kIDX_HIGH = 4;
 const int kIDX_LOW = 4;
 const int kIDX_VOLUME = 5;
 
+void worker(std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>> *q, std::mutex *m, std::mutex *queueMutex, std::string t, int c, std::unordered_map<std::string, Ochl> *ma){
+
+    m->lock();
+
+    int thisThread = c;
+
+    // std::cout << std::to_string(thisThread) << " " << " " 
+    // << std::this_thread::get_id()
+    // << " Worker for: " << t << std::endl;
+
+    m->unlock();
+    
+    while(true){
+        // wait for a new value
+        queueMutex->lock();
+        auto elem = q->at(t);
+        // auto maElem = ma->at(t);
+        queueMutex->unlock();
+
+        auto v = elem->receive();
+
+        // m->lock();
+
+        // std::cout << "[" << thisThread << "] Ticker update received: " << v.ticker << ": " << v.open << std::endl;
+        // // std::string s = std::string(" << Ticker update received: " ) + std::to_string(thisThread) + std::string(" ") + v.ticker + std::string(" ") + std::to_string(v.open) + " " ;
+
+        // // std::cout << s <<std::endl;
+
+        // m->unlock();
+
+    }
+    
+}
+
 int main()
 {
 
     std::set<std::string> tickers;
+    int counter = 0;
 
     ///////////////////////////////////////////////////////////////////////
     //
@@ -47,6 +83,10 @@ int main()
 
             date = std::stoull(std::string(row[kIDX_DATE]));
             symbol = std::string(row[kIDX_SYMBOL]);
+
+            // remove white space from symbol
+            symbol.erase(std::remove (symbol.begin(), symbol.end(), ' '), symbol.end());
+
             open = std::stod(std::string(row[kIDX_OPEN]));
             close = std::stod(std::string(row[kIDX_CLOSE]));
             high = std::stod(std::string(row[kIDX_HIGH]));
@@ -89,50 +129,52 @@ int main()
     std::vector<std::thread> threads;
 
     std::mutex m;
+    std::mutex queueMutex;
 
     for( auto t: tickers) {
 
         sma.insert({t, Ochl(0,t, 0, 0, 0, 0, 0)});
 
-        auto mq = MessageQueue<Ochl>();
+        queueMutex.lock();
         q->insert(std::make_pair(t, std::make_shared<MessageQueue<Ochl>>()));
+        queueMutex.unlock();
 
-        threads.emplace_back(std::thread([=, &m, &q](){
+        threads.push_back(std::thread(worker, q.get(), &m, &queueMutex, t, counter, &sma));
 
-            // std::cout << "Starting worker for: " << t << std::endl;
-
-            // while(true){
-            //     // wait for a new value
-            //     auto v = q->at(t)->receive();
-
-            //     m.lock();
-            //     // std::cout << "Ticker update received: " << v.ticker << ": " << v.open << std::endl;
-            //     std::string s = std::string(" << Ticker update received: " ) + v.ticker + std::string(" ") + std::to_string(v.open);
-
-            //     std::cout << s <<std::endl;
-
-            //     m.unlock();
-
-            // }
-            
-        }));
+        counter++;
     }
 
-    // Ochl tmp;
+    std::cout << "Num Worker Threads: " << threads.size() << std::endl;
 
-    // for (int i = 0; i < 10; i++){
-    //     // auto a = vec->at(i);
-    //     tmp = vec->at(i);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    //     auto tickerQueue = q->at(tmp.ticker);
 
-    //     std::cout << " >> Sending " << tmp.ticker << std::endl; 
-    //     q->at(tmp.ticker)->send(std::move(tmp));
+    for (int i = 0; i < vec->size(); i++){
+        // auto a = vec->at(i);
+        auto tt = vec->at(i);
+        Ochl tmp(tt.date, tt.ticker, tt.open, tt.close, tt.high, tt.low, tt.volume);
 
-    //     std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // m.lock();
+        // std::cout << " >> Sending " << tmp.ticker << std::endl; 
+        // m.unlock();
 
-    // }
+        queueMutex.lock();
+        auto elem = q->at(tmp.ticker);
+        queueMutex.unlock();
 
+        elem->send(std::move(tmp));
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        
+        if (i % 10000 == 0 ){
+            std::cout << "Processing element: " << i << std::endl;
+        }
+
+    }
+
+    std::cout << "FINISHED" << std::endl;
+
+ 
     for (auto& t: threads){
         t.join();
     }

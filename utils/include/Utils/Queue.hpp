@@ -4,6 +4,7 @@
 #include <mutex>
 #include <deque>
 #include <condition_variable>
+#include <iostream>
 
 template <class T>
 class MessageQueue
@@ -20,9 +21,10 @@ T receive()
     // wait for a new message
     m_cond.wait(mut, [this]{return !m_queue.empty();});
 
+    // std::cout << "Message received" << std::endl;
+
     // move the message
     T tmp = std::move(m_queue.front());
-    m_queue.pop_front();
 
     // pop the message 
     m_queue.pop_front();
@@ -36,6 +38,8 @@ T receive()
 
 void send(T &&msg)
 {
+
+    // std::cout << "Sending message" << std::endl;
 
     std::unique_lock<std::mutex> mut(m_mut);
 
