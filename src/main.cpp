@@ -10,6 +10,7 @@
 #include <mutex>
 #include <set>
 #include <algorithm>
+#include <random>
 
 const int kIDX_DATE = 0;
 const int kIDX_SYMBOL = 1;
@@ -30,13 +31,26 @@ auto calculate_ema = [](double yesterday, double today) -> double {
 
 struct transaction_t {
     Ochl ref;
-    double refPrice;
+    
+    // the price of a single stock in the current time segment
+    double currentPrice;
 
-    double transactionPrice;
+    // the price of a signle stock in the previous time segment 
     double previousPrice;
 
+    double currentValue;
+    double previousValue;
+
+    // current number of share owned in portfolio
     double shares;
+
+    // the current total value of stock portfolio 
+    double value; 
+
+    // flag to specify if transaction is purchase or sell -> used for std::vector<transaction_t> 
     bool purchase;
+
+    std::string ticker;
     
 };
 
@@ -48,95 +62,103 @@ public:
 
     void purchase(Ochl *ref, double shares){
 
-        double amount = ref->open * shares;
-        double newPrice = ref->open;
-
-        if (amount > m_balance){
-            // can not purchase -- not enough money left 
-            return;
-        }
+        double purchaseAmount = ref->open * shares;
+        double purchasePrice = ref->open;
+        std::string purchaseTicker = ref->ticker;
 
         m_mut.lock();
 
+        if (purchaseAmount > m_balance){
+            // can not purchase -- not enough money left 
+
+            m_mut.unlock();
+            return;
+        }
+
+        // m_mut.lock();
+
+        // Store a reference for later debugging if needed 
         transaction_t newTransaction;
+
         newTransaction.purchase = true;
         newTransaction.ref = *ref;
-        newTransaction.refPrice = newPrice;
+        newTransaction.currentPrice = purchasePrice;
         newTransaction.shares = shares;
+        newTransaction.ticker = purchaseTicker;
 
         m_vec_trans.push_back(newTransaction);
-
-        // subtract from balance 
-        m_balance -= amount;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // TODO: WRITE UNIT TESTS
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        auto it = m_map_trans.find(ref->ticker);
-        if (it != m_map_trans.end()){
-            // we already own shares, so update values 
-            transaction_t t = it->second;
+      
+        // first check if we already own any stocks of this type 
+        auto it = m_map_trans.find(purchaseTicker);
 
-            double worth = newPrice * t.shares;
-            double originalWorth = t.refPrice * t.shares;
+        if (it == m_map_trans.end()){
+            // this is the first time purchasing this stock 
+            transaction_t newTrans; 
+            newTrans.currentPrice = purchasePrice;
+            newTrans.previousPrice = purchasePrice;
+            newTrans.currentValue = purchaseAmount;
+            newTrans.previousValue = purchaseAmount;
+            newTrans.shares = shares;
+            newTrans.ref = *ref;
+            newTrans.purchase = true;
+            newTrans.value = 0;
+            newTrans.ticker = purchaseTicker;
 
-            double delta = worth - originalWorth;
-
-            shares += delta / newPrice;
-
-            // double equivalentShares = 
+            m_map_trans[purchaseTicker] = newTrans;
 
         }
+        
+        // update values 
 
-        // add to value 
-        m_value += amount;
+        // withdrawl from the balance
+        m_balance -= purchaseAmount;
 
-        // transaction_t newTransaction;
-        newTransaction.purchase = true;
-        newTransaction.ref = *ref;
-        newTransaction.refPrice = newPrice;
-        newTransaction.shares = shares;
-
-        m_map_trans[ref->ticker] = newTransaction;
-
-
+        // update the shares value 
+        m_map_trans[purchaseTicker].value += purchaseAmount;
+      
         m_mut.unlock();
 
     };
 
     void sell(Ochl *ref, double shares){
 
-        double amount = ref->open * shares;
-        double newPrice = ref->open;
+        double sellAmount = ref->open * shares;
+        double sellPrice = ref->open;
+        std::string sellTicker = ref->ticker;
 
+        // TODO: update to smart lock that doesn't require .unlock();
         m_mut.lock();
 
-        auto it = m_map_trans.find(ref->ticker);
-        if (it != m_map_trans.end()){
-
-            transaction_t t = it->second;
-
-            if (shares > t.shares){
-                m_mut.unlock();
-                return;
-            }
-
-            t.shares -= shares;
+        // first, check if actually own any shares 
+        auto it = m_map_trans.find(sellTicker);
+        if (it == m_map_trans.end()){
+            // could not find it in the portfolio
+            // - ignore request and return 
+            m_mut.unlock();
+            return;
         }
 
-        // subtract from value 
-        m_value -= amount;
-
-        // add to balance 
-        m_balance += amount;
-
+        // store transaction for debugging
         transaction_t newTransaction;
         newTransaction.purchase = false;
         newTransaction.ref = *ref;
-        newTransaction.refPrice = newPrice;
+        newTransaction.currentPrice = sellPrice;
         newTransaction.shares = shares;
 
         m_vec_trans.push_back(newTransaction);
+
+
+        // update values 
+
+        // decrease the value of the portfolio
+        m_map_trans[sellTicker].value -= sellAmount;
+
+        // increase transfer the value to the overall balance
+        m_balance += sellAmount;
 
         m_mut.unlock();
 
@@ -144,16 +166,34 @@ public:
 
     void update(Ochl *ref){
 
-        // if ticker in portfolio, update m_value 
-        auto it = m_map_trans.find(ref->ticker);
+        // if ticker in portfolio, update internal values 
+        double currentPrice = ref->open;
+        std::string ticker = ref->ticker;
+
+        m_mut.lock();
+        auto it = m_map_trans.find(ticker);
         if (it != m_map_trans.end()){
 
-            transaction_t t = it->second;
+            auto t = m_map_trans[ticker];
 
-            //update the portfolio value 
+            // it exists, so we update 
+            double currentValue = t.shares * currentPrice;
+            double previousValue = t.previousValue;
+            
+            t.value += currentValue - t.previousValue;
+
+            // rotate the values for the next time tick
+            m_map_trans[ticker].previousValue = currentValue;
+            m_map_trans[ticker].previousPrice = currentPrice;
+
         }
 
+        m_mut.unlock();
+
+
         // run simulation 
+        simulateRandom(ref);
+
     }
 
     void simulateRandom(Ochl *ref){
@@ -161,33 +201,79 @@ public:
         // randomly decide to take an action: buy or sell 
             // generate random number between 1 -> 100
             // if number is less than 10, take action 
+        
+        uint32_t randVal = randDist(eng);
+        uint32_t numShares = randDist(eng);
 
-        // randomly decide number of shares to perform action 
-
-
+        if (randVal < 10){
+            // this will be a buy signal 
+            purchase(ref, static_cast<double>(numShares));
+            
+        } else if (randVal > 10 && randVal < 20){
+            //this will be a sell signal 
+            sell(ref, static_cast<double>(numShares));
+        }
 
     }
 
     double getNetValue(){
-        return m_balance + m_value;
+        // return m_balance + m_value;
+        double tmp = m_balance;
+
+        for (auto &m: m_map_trans){
+
+            auto t = m.second;
+            tmp += t.value;
+
+            std::cout << " | " << t.ticker << "\t" << t.value << std::endl;
+
+        }
+
+
+        // for (auto &t : m_vec_trans){
+        //     auto d = t.purchase ? " [BUY] " : "[SELL] ";
+
+        //     std::cout << d;
+        //     std::cout << t.ref.ticker << " (" << t.shares << ") " << t.price << std::endl;
+        // }
+
+        std::cout << "Num Transactions: " << m_vec_trans.size() << std::endl;
+        std::cout << "Portfolio Balance: " << tmp << std::endl;
+
+        return tmp;
     }
 
 private:
-    double m_balance = 0;
-    double m_value = 0; 
+    double m_balance;
 
     std::unordered_map<std::string, transaction_t> m_map_trans;
     std::vector<transaction_t> m_vec_trans;
 
     std::mutex m_mut;
+
+    // Setup the random distribution
+    static std::mt19937 eng;
+    const static uint32_t randMin = 0;
+    const static uint32_t randMax = 100;
+    static std::uniform_int_distribution<uint32_t> randDist;
 };
+
+std::random_device rd;
+std::mt19937 Portfolio::eng(rd());
+std::uniform_int_distribution<uint32_t> Portfolio::randDist(Portfolio::randMin, Portfolio::randMax);
+
+
+double balance = 1000;
+std::shared_ptr<Portfolio> portfolio = std::make_shared<Portfolio>(balance);
+
+
 
 void worker(std::shared_ptr<MessageQueue<Ochl>> q, std::mutex *m, std::mutex *queueMutex, std::string t, int c, std::unordered_map<std::string, Ochl> *ma){
 
-    int day = 0;
-    double smaStart = 0;
+    // int day = 0;
+    // double smaStart = 0;
 
-    double open, close, high, low;
+    // double open, close, high, low;
 
     // m->lock();
 
@@ -209,24 +295,25 @@ void worker(std::shared_ptr<MessageQueue<Ochl>> q, std::mutex *m, std::mutex *qu
 
         // auto v = elem->receive();
 
-        if ( day < kEMA_DAYS ){
-            open += v.open;
-            close += v.close;
-            high += v.high;
-            low += v.low;
-            day++;
-
-        } else if (day = kEMA_DAYS) {
-            maElem.open = open/kEMA_DAYS;
-            maElem.close = close/kEMA_DAYS;
-            maElem.high = high/kEMA_DAYS;
-            maElem.low = low/kEMA_DAYS;
+        if ( maElem.counter < kEMA_DAYS ){
+            maElem.open += v.open;
+            maElem.close += v.close;
+            maElem.high += v.high;
+            maElem.low += v.low;
+            maElem.counter++;
+        } else if (maElem.counter = kEMA_DAYS) {
+            maElem.open /= kEMA_DAYS;
+            maElem.close /= kEMA_DAYS;
+            maElem.high /= kEMA_DAYS;
+            maElem.low /= kEMA_DAYS;
         } else {
             maElem.open = calculate_ema(maElem.open, v.open);
             maElem.close = calculate_ema(maElem.close, v.close);
             maElem.high = calculate_ema(maElem.high, v.high);
             maElem.low = calculate_ema(maElem.low, v.low);
         }
+
+        portfolio->update(&v);
 
         // m->lock();
 
@@ -367,10 +454,12 @@ int main()
 
     std::cout << "FINISHED" << std::endl;
 
+    portfolio->getNetValue();
+
  
-    for (auto& t: threads){
-        t.join();
-    }
+    // for (auto& t: threads){
+    //     t.join();
+    // }
 
 
     return 0;

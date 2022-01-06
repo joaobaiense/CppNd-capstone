@@ -27,6 +27,7 @@ public:
     double high = 0.0;
     double low = 0.0;
     uint64_t volume = 0;
+    uint64_t counter = 0;
 
 // private:
     std::string ticker = "";
