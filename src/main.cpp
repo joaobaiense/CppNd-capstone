@@ -119,6 +119,10 @@ public:
 
         // update the shares value 
         m_map_trans[purchaseTicker].value += purchaseAmount;
+
+
+        std::cout << "Action: [PURCHASE] " << shares << " " << purchaseTicker << std::endl;
+        debugPortfolio();
       
         m_mut.unlock();
 
@@ -142,6 +146,11 @@ public:
             return;
         }
 
+        // next, check if we have enough shares to sell 
+        if ( shares > m_map_trans[sellTicker].shares){
+            return;
+        }
+
         // store transaction for debugging
         transaction_t newTransaction;
         newTransaction.purchase = false;
@@ -157,8 +166,13 @@ public:
         // decrease the value of the portfolio
         m_map_trans[sellTicker].value -= sellAmount;
 
+        m_map_trans[sellTicker].shares -= shares;
+
         // increase transfer the value to the overall balance
         m_balance += sellAmount;
+
+        std::cout << "Action: [SELL] " << shares << " " << sellTicker << std::endl; 
+        debugPortfolio();
 
         m_mut.unlock();
 
@@ -211,7 +225,23 @@ public:
             
         } else if (randVal > 10 && randVal < 20){
             //this will be a sell signal 
-            sell(ref, static_cast<double>(numShares));
+
+            m_mut.lock();
+            auto it = m_map_trans.find(ref->ticker);
+            if (it == m_map_trans.end()){
+                // could not find it in the portfolio
+                // - ignore request and return 
+                m_mut.unlock();
+                return;
+            }
+
+            double shares = std::floor(m_map_trans[ref->ticker].shares * numShares/100);
+
+            m_mut.unlock();
+
+            if (shares > 0){
+                sell(ref, shares);
+            }
         }
 
     }
@@ -225,7 +255,7 @@ public:
             auto t = m.second;
             tmp += t.value;
 
-            std::cout << " | " << t.ticker << "\t" << t.value << std::endl;
+            std::cout << " | " << t.ticker << " " << t.value << std::endl;
 
         }
 
@@ -243,6 +273,29 @@ public:
         return tmp;
     }
 
+
+    void debugPortfolio(){
+        std::cout << "----PORTFOLIO---------------------------" << std::endl;
+
+        std::cout << "Num Companies: " << m_map_trans.size() << std::endl;
+        double tmp = 0;
+
+        for (auto &m: m_map_trans){
+            auto t = m.second;
+
+            std::cout << " | [" << t.shares <<  "] " << t.ticker << " " << t.value << std::endl;
+
+            tmp += t.value;
+        }
+
+        std::cout << "Balance: " << m_balance << std::endl;
+        std::cout << "  Value: " << tmp << std::endl;
+        std::cout << "  Total: " << (m_balance + tmp) << std::endl;
+
+        std::cout << "----------------------------------------" << std::endl;
+        std::cout << std::endl << std::endl;
+    }
+
 private:
     double m_balance;
 
@@ -253,7 +306,7 @@ private:
 
     // Setup the random distribution
     static std::mt19937 eng;
-    const static uint32_t randMin = 0;
+    const static uint32_t randMin = 1;
     const static uint32_t randMax = 100;
     static std::uniform_int_distribution<uint32_t> randDist;
 };
@@ -446,9 +499,9 @@ int main()
 
         // std::this_thread::sleep_for(std::chrono::milliseconds(100));
         
-        if (i % 10000 == 0 ){
-            std::cout << "Processing element: " << i << std::endl;
-        }
+        // if (i % 10000 == 0 ){
+        //     std::cout << "Processing element: " << i << std::endl;
+        // }
 
     }
 
