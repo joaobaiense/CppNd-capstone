@@ -2,6 +2,7 @@ set(BINARY utils)
 
 set(SOURCES
     Csv.cpp
+    Queue.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
