@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 #include <thread>
+#include <mutex>
 #include <set>
 
 const int kIDX_DATE = 0;
@@ -83,27 +84,36 @@ int main()
     ///////////////////////////////////////////////////////////////////////
 
     std::unordered_map<std::string, Ochl> sma;
-    std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>> q;
+    std::shared_ptr<std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>>> q = std::make_shared<std::unordered_map<std::string, std::shared_ptr<MessageQueue<Ochl>>>>();
+
     std::vector<std::thread> threads;
+
+    std::mutex m;
 
     for( auto t: tickers) {
 
         sma.insert({t, Ochl(0,t, 0, 0, 0, 0, 0)});
-        q.insert({t, std::make_shared<MessageQueue<Ochl>>()});
 
-        // MessageQueue<Ochl> *tickerQueue = q.at(t).get();
+        auto mq = MessageQueue<Ochl>();
+        q->insert(std::make_pair(t, std::make_shared<MessageQueue<Ochl>>()));
 
-        threads.emplace_back(std::thread([&q, t](){
-        
-        // threads.push_back(std::thread([]{
-            
-            while(true){
-                // wait for a new value
-                auto v = q.at(t)->receive();
+        threads.emplace_back(std::thread([=, &m, &q](){
 
-                std::cout << "Ticker update received: " << v.ticker << ": " << v.open << std::endl;
+            // std::cout << "Starting worker for: " << t << std::endl;
 
-            }
+            // while(true){
+            //     // wait for a new value
+            //     auto v = q->at(t)->receive();
+
+            //     m.lock();
+            //     // std::cout << "Ticker update received: " << v.ticker << ": " << v.open << std::endl;
+            //     std::string s = std::string(" << Ticker update received: " ) + v.ticker + std::string(" ") + std::to_string(v.open);
+
+            //     std::cout << s <<std::endl;
+
+            //     m.unlock();
+
+            // }
             
         }));
     }
@@ -111,17 +121,21 @@ int main()
     // Ochl tmp;
 
     // for (int i = 0; i < 10; i++){
-    //     auto a = vec->at(i);
-    //     Ochl tmp = Ochl(0, a.ticker, a.open, 0,0,0,0);
+    //     // auto a = vec->at(i);
+    //     tmp = vec->at(i);
 
-    //     auto tickerQueue = q.at(tmp.ticker);
-    //     q.at(tmp.ticker)->send(std::move(tmp));
+    //     auto tickerQueue = q->at(tmp.ticker);
+
+    //     std::cout << " >> Sending " << tmp.ticker << std::endl; 
+    //     q->at(tmp.ticker)->send(std::move(tmp));
+
+    //     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // }
 
-    // for (auto& t: threads){
-    //     t.join();
-    // }
+    for (auto& t: threads){
+        t.join();
+    }
 
 
     return 0;
