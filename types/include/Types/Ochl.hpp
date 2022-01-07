@@ -29,6 +29,8 @@ public:
     uint64_t volume = 0;
     uint64_t counter = 0;
 
+    bool kill = false;
+
 // private:
     std::string ticker = "";
     uint64_t date = 0;

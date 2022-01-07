@@ -2,6 +2,7 @@ set(BINARY utils)
 
 set(SOURCES
     Csv.cpp
+    Float.cpp
     Queue.cpp
 )
 

@@ -2,6 +2,7 @@ set(BINARY types)
 
 set(SOURCES
     Ochl.cpp
+    Portfolio.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
@@ -12,5 +13,5 @@ target_include_directories(${BINARY} PUBLIC
 )
 
 target_link_libraries(${BINARY} PUBLIC
-
+    utils
 )

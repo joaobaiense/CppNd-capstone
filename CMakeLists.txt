@@ -19,8 +19,17 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-###
+### SET output directory for all binaries 
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+###
+add_subdirectory(log)
 add_subdirectory(src)
+add_subdirectory(test)
 add_subdirectory(types)
 add_subdirectory(utils)
+add_subdirectory(vendor)
+
+enable_testing()
