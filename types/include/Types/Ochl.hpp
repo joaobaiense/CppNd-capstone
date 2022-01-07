@@ -4,37 +4,35 @@
 #include <string>
 
 class Ochl {
-
-public:
-    Ochl(){};
-    Ochl(uint64_t date, std::string ticker, double open, double close, double high, double low, uint64_t volume) :
-        date(std::move(date)),
-        ticker(std::move(ticker)), 
+ public:
+  Ochl(){};
+  Ochl(uint64_t date, std::string ticker, double open, double close,
+       double high, double low, uint64_t volume)
+      : date(std::move(date)),
+        ticker(std::move(ticker)),
         open(std::move(open)),
         close(std::move(close)),
         high(std::move(high)),
         low(std::move(low)),
-        volume(std::move(volume))
-        {};
-    
-    ~Ochl(){};
+        volume(std::move(volume)){};
 
-    // copy
-    // move 
+  ~Ochl(){};
 
-    double open = 0.0;
-    double close = 0.0;
-    double high = 0.0;
-    double low = 0.0;
-    uint64_t volume = 0;
-    uint64_t counter = 0;
+  // copy
+  // move
 
-    bool kill = false;
+  double open = 0.0;
+  double close = 0.0;
+  double high = 0.0;
+  double low = 0.0;
+  uint64_t volume = 0;
+  uint64_t counter = 0;
 
-// private:
-    std::string ticker = "";
-    uint64_t date = 0;
+  bool kill = false;
 
+  // private:
+  std::string ticker = "";
+  uint64_t date = 0;
 };
 
-#endif // TYPES_INCLUDE_TYPES_OCHL_HPP_
+#endif  // TYPES_INCLUDE_TYPES_OCHL_HPP_

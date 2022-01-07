@@ -83,6 +83,16 @@
         "numbers": "cpp",
         "queue": "cpp",
         "semaphore": "cpp",
-        "stop_token": "cpp"
+        "stop_token": "cpp",
+        "any": "cpp",
+        "charconv": "cpp",
+        "forward_list": "cpp",
+        "future": "cpp",
+        "map": "cpp",
+        "regex": "cpp",
+        "span": "cpp",
+        "unordered_set": "cpp",
+        "variant": "cpp",
+        "cinttypes": "cpp"
     }
 }

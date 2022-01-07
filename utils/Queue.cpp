@@ -1,7 +1,6 @@
 
 #include "include/Utils/Queue.hpp"
 
-
 // template <typename T>
 // T MessageQueue<T>::receive()
 // {
@@ -15,10 +14,10 @@
 //     T tmp = std::move(m_queue.front());
 //     m_queue.pop_front();
 
-//     // pop the message 
+//     // pop the message
 //     m_queue.pop_front();
 
-//     // unlock 
+//     // unlock
 //     mut.unlock();
 
 //     return tmp;
@@ -30,13 +29,13 @@
 
 //     std::unique_lock<std::mutex> mut(m_mut);
 
-//     // push to the queue 
+//     // push to the queue
 //     m_queue.emplace_back(std::move(msg));
 
-//     // unlock 
+//     // unlock
 //     mut.unlock();
 
-//     // notify 
+//     // notify
 //     m_cond.notify_one();
 
 // }
