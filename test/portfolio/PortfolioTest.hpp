@@ -18,10 +18,10 @@ class PortfolioTest : public ::testing::Test {
 
     // initialize a portfolio
     p = std::make_shared<Portfolio>(balance);
-    t = Ochl(0, "", 0, 0, 0, 0, 0);
+    t = Ochl(0, std::string("TEST_TICKER"), 0, 0, 0, 0, 0);
   }
 
-  void TearDown() {
+  void TearDown() override {
     // code weill be called after the test completes
     // exceptions allowed
   }

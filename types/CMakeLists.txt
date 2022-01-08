@@ -14,4 +14,5 @@ target_include_directories(${BINARY} PUBLIC
 
 target_link_libraries(${BINARY} PUBLIC
     utils
+    log
 )

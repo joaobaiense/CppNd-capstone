@@ -2,6 +2,7 @@
 #ifndef TYPES_INCLUDE_TYPES_PORTFOLIO_HPP_
 #define TYPES_INCLUDE_TYPES_PORTFOLIO_HPP_
 
+#include <Log/Log.hpp>
 #include <Utils/Float.hpp>
 #include <iostream>
 #include <mutex>
@@ -261,30 +262,28 @@ class Portfolio {
   int getNumCompanies() { return m_map_trans.size(); }
 
   void debugPortfolio() {
-    std::cout << "----PORTFOLIO---------------------------" << std::endl;
+    LDEBUG("----PORTFOLIO---------------------------");
 
-    std::cout << "Num Companies: " << m_map_trans.size() << std::endl;
+    LDEBUG("Num Companies: {}", m_map_trans.size());
+
     double tmp = 0;
 
-    std::cout << " ---------------" << std::endl;
+    LDEBUG(" ---------------");
 
     for (auto &m : m_map_trans) {
       auto t = m.second;
 
-      std::cout << " | [" << t.shares << "] " << t.ticker << " " << t.value
-                << std::endl;
+      LDEBUG(" | [{}] {} {:.2f}", t.shares, t.ticker, t.value);
 
       tmp += t.value;
     }
-    std::cout << " ---------------" << std::endl;
 
-    std::cout << std::endl;
+    LDEBUG(" ---------------");
 
-    std::cout << "Balance: $ " << m_balance << std::endl;
-    std::cout << "  Value: $ " << tmp << std::endl;
-    std::cout << "  Total: $ " << (m_balance + tmp) << std::endl << std::endl;
-
-    std::cout << "----------------------------------------" << std::endl;
+    LDEBUG("Balance: $ {0:.2f}", m_balance);
+    LDEBUG("  Value: $ {0:.2f}", tmp);
+    LDEBUG("  Total: $ {0:.2f}", (m_balance + tmp));
+    LDEBUG("----------------------------------------");
     std::cout << std::endl << std::endl;
   }
 

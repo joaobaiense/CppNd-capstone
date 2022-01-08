@@ -54,7 +54,7 @@ void worker(std::shared_ptr<MessageQueue<Ochl>> q, std::mutex *m,
       maElem.high += v.high;
       maElem.low += v.low;
       maElem.counter++;
-    } else if (maElem.counter = kEMA_DAYS) {
+    } else if (maElem.counter == kEMA_DAYS) {
       maElem.open /= kEMA_DAYS;
       maElem.close /= kEMA_DAYS;
       maElem.high /= kEMA_DAYS;
@@ -161,7 +161,8 @@ int main() {
   double worth = portfolio->getNetValue();
   double percentageChange = (((worth - balance) / balance * 100) * 100) / 100;
 
-  LDEBUG("Portfolio Value: {0:.2f} Delta: {1:.2f} %", worth, percentageChange);
+  LDEBUG("Portfolio Value: $ {0:.2f} Delta: {1:.2f} %", worth,
+         percentageChange);
   LDEBUG("Num Data Points: {}", vec->size());
   LDEBUG("Num Tickers: {}", tickers.size());
 
