@@ -93,6 +93,8 @@
         "span": "cpp",
         "unordered_set": "cpp",
         "variant": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "__memory": "cpp",
+        "filesystem": "cpp"
     }
 }

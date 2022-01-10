@@ -3,6 +3,8 @@ set(BINARY types)
 set(SOURCES
     Ochl.cpp
     Portfolio.cpp
+    PortfolioRandom.cpp
+    PortfolioRandom2.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})

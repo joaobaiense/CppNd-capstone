@@ -3,7 +3,6 @@
 
 #include <gtest/gtest.h>
 
-#include <Types/Ochl.hpp>
 #include <Types/Portfolio.hpp>
 
 class PortfolioTest : public ::testing::Test {

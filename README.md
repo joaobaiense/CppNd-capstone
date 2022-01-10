@@ -10,11 +10,11 @@
 | :white_check_mark: | The submission must compile and run. |       |
 
 ### Loops, Functions, I/O
-| Result                | Criteria                                                                                         | Notes                                              |
-| --------------------- | :----------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| :white_check_mark:    | The project demonstrates an understanding of C++ functions and control structures.               |                                                    |
-| :white_check_mark:    | The project reads data from a Notes and process the data, or the program writes data to a Notes. |                                                    |
-| :black_square_button: | The project accepts user input and processes the input.                                          | :warning: This project does not accept user input. |
+| Result             | Criteria                                                                                       | Notes |
+| ------------------ | :--------------------------------------------------------------------------------------------- | ----- |
+| :white_check_mark: | The project demonstrates an understanding of C++ functions and control structures.             |       |
+| :white_check_mark: | The project reads data from a file and process the data, or the program writes data to a file. |       |
+| :white_check_mark: | The project accepts user input and processes the input.                                        |       |
 
 ### Object Oriented Programming
 | Result                | Criteria                                                                         | Notes                                                  |
@@ -62,6 +62,13 @@ spdlog, google tests
 ```
 mkdir build && cd build 
 cmake -DCMAKE_BUILD_TYPE=Release .. 
+```
+
+# Run project 
+
+```
+build/bin/stockStim
+build/bin/stockSim <portfolio_balance=10000>
 ```
 
 # Random Buy/Sell Signal Algorithm

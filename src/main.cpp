@@ -3,6 +3,8 @@
 #include <Log/Log.hpp>
 #include <Types/Ochl.hpp>
 #include <Types/Portfolio.hpp>
+#include <Types/PortfolioRandom.hpp>
+#include <Types/PortfolioRandom2.hpp>
 #include <Utils/Csv.hpp>
 #include <Utils/Queue.hpp>
 #include <algorithm>
@@ -33,10 +35,28 @@ auto calculate_ema = [](double yesterday, double today) -> double {
   return today * kEMA_FACTOR + yesterday * (1 - kEMA_FACTOR);
 };
 
-void worker(std::shared_ptr<MessageQueue<Ochl>> q, std::mutex *m,
-            std::mutex *queueMutex, std::string t, int c,
-            std::unordered_map<std::string, Ochl> *ma,
-            std::shared_ptr<Portfolio> portfolio) {
+void update_ema(Ochl *elem, Ochl *newElem) {
+  if (elem->counter < kEMA_DAYS) {
+    elem->open += newElem->open;
+    elem->close += newElem->close;
+    elem->high += newElem->high;
+    elem->low += newElem->low;
+    elem->counter++;
+  } else if (elem->counter == kEMA_DAYS) {
+    elem->open /= kEMA_DAYS;
+    elem->close /= kEMA_DAYS;
+    elem->high /= kEMA_DAYS;
+    elem->low /= kEMA_DAYS;
+  } else {
+    elem->open = calculate_ema(elem->open, newElem->open);
+    elem->close = calculate_ema(elem->close, newElem->close);
+    elem->high = calculate_ema(elem->high, newElem->high);
+    elem->low = calculate_ema(elem->low, newElem->low);
+  }
+}
+
+void worker(std::shared_ptr<MessageQueue<Ochl>> q,
+            std::shared_ptr<Portfolio> p) {
   while (true) {
     // wait for a new value
     auto v = q->receive();
@@ -46,33 +66,36 @@ void worker(std::shared_ptr<MessageQueue<Ochl>> q, std::mutex *m,
       return;
     }
 
-    auto maElem = ma->at(v.ticker);
-
-    if (maElem.counter < kEMA_DAYS) {
-      maElem.open += v.open;
-      maElem.close += v.close;
-      maElem.high += v.high;
-      maElem.low += v.low;
-      maElem.counter++;
-    } else if (maElem.counter == kEMA_DAYS) {
-      maElem.open /= kEMA_DAYS;
-      maElem.close /= kEMA_DAYS;
-      maElem.high /= kEMA_DAYS;
-      maElem.low /= kEMA_DAYS;
-    } else {
-      maElem.open = calculate_ema(maElem.open, v.open);
-      maElem.close = calculate_ema(maElem.close, v.close);
-      maElem.high = calculate_ema(maElem.high, v.high);
-      maElem.low = calculate_ema(maElem.low, v.low);
-    }
-
-    portfolio->update(&v);
-    portfolio->simulateRandom(&v);
+    p->update(&v);
+    p->runAlgorithm(&v);
   }
 }
 
-int main() {
+void summary(std::shared_ptr<Portfolio> p, const double &balance) {
+  p->debugPortfolio();
+
+  double worth = p->getNetValue();
+  double percentageChange = (((worth - balance) / balance * 100) * 100) / 100;
+
+  LDEBUG("Portfolio Value: $ {0:.2f} Delta: {1:.2f} %", worth,
+         percentageChange);
+}
+
+int main(int argc, char *argv[]) {
   Log::init("SIM");
+
+  double balance = 10000;
+
+  if (argc == 2) {
+    LDEBUG("User provided balance: {}", argv[1]);
+
+    try {
+      balance = std::stod(argv[1]);
+    } catch (const std::exception &e) {
+      LERROR("Could not parse user provided input for balance.");
+      LDEBUG("Defauting balance to {}", balance);
+    }
+  }
 
   std::set<std::string> tickers;
   int counter = 0;
@@ -83,7 +106,7 @@ int main() {
   //
   ///////////////////////////////////////////////////////////////////////
 
-  std::ifstream file("data/capstone_data.csv");
+  std::ifstream file("data/capstone_data_test.csv");
 
   std::shared_ptr<std::vector<Ochl>> vec =
       std::make_shared<std::vector<Ochl>>();
@@ -124,23 +147,28 @@ int main() {
   //
   ///////////////////////////////////////////////////////////////////////
 
-  double balance = 10000;
-  std::shared_ptr<Portfolio> portfolio = std::make_shared<Portfolio>(balance);
-  std::unordered_map<std::string, Ochl> sma;
-  std::shared_ptr<MessageQueue<Ochl>> q =
+  std::shared_ptr<Portfolio> p1 = std::make_shared<PortfolioRandom>(balance);
+  std::shared_ptr<Portfolio> p2 = std::make_shared<PortfolioRandom2>(balance);
+
+  // std::unordered_map<std::string, Ochl> sma;
+  std::shared_ptr<MessageQueue<Ochl>> q1 =
       std::make_shared<MessageQueue<Ochl>>();
+
+  std::shared_ptr<MessageQueue<Ochl>> q2 =
+      std::make_shared<MessageQueue<Ochl>>();
+
   std::vector<std::thread> threads;
 
-  std::mutex m;
-  std::mutex queueMutex;
+  // for (auto t : tickers) {
+  //   sma.insert({t, Ochl(0, t, 0, 0, 0, 0, 0)});
+  // }
 
-  for (auto t : tickers) {
-    sma.insert({t, Ochl(0, t, 0, 0, 0, 0, 0)});
+  for (int i = 0; i < 4; i++) {
+    threads.push_back(std::thread(worker, q1, p1));
   }
 
-  for (int i = 0; i < 100; i++) {
-    threads.push_back(std::thread(worker, q, &m, &queueMutex, std::string(""),
-                                  counter, &sma, portfolio));
+  for (int i = 0; i < 4; i++) {
+    threads.push_back(std::thread(worker, q2, p2));
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -152,17 +180,16 @@ int main() {
   for (int i = 0; i < vec->size(); i++) {
     auto tt = vec->at(i);
     Ochl tmp(tt.date, tt.ticker, tt.open, tt.close, tt.high, tt.low, tt.volume);
+    Ochl tmp2 = tmp;
 
-    q->send(std::move(tmp));
+    q1->send(std::move(tmp));
+    q2->send(std::move(tmp2));
   }
 
-  portfolio->debugPortfolio();
+  summary(p1, balance);
+  summary(p2, balance);
 
-  double worth = portfolio->getNetValue();
-  double percentageChange = (((worth - balance) / balance * 100) * 100) / 100;
-
-  LDEBUG("Portfolio Value: $ {0:.2f} Delta: {1:.2f} %", worth,
-         percentageChange);
+  LDEBUG("");
   LDEBUG("Num Data Points: {}", vec->size());
   LDEBUG("Num Tickers: {}", tickers.size());
 
@@ -172,11 +199,14 @@ int main() {
   //
   ///////////////////////////////////////////////////////////////////////
 
-  for (int i = 0; i < threads.size(); i++) {
+  for (int i = 0; i < 4; i++) {
     Ochl tmp(0, "", 0, 0, 0, 0, 0);
     tmp.kill = true;
 
-    q->send(std::move(tmp));
+    Ochl tmp2 = tmp;
+
+    q1->send(std::move(tmp));
+    q2->send(std::move(tmp2));
   }
 
   for (auto &t : threads) {
