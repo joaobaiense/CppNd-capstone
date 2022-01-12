@@ -27,7 +27,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 ###
 add_subdirectory(log)
 add_subdirectory(src)
-# add_subdirectory(test)
+add_subdirectory(test)
 add_subdirectory(types)
 add_subdirectory(utils)
 add_subdirectory(vendor)

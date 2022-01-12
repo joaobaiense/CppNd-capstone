@@ -159,10 +159,6 @@ int main(int argc, char *argv[]) {
 
   std::vector<std::thread> threads;
 
-  // for (auto t : tickers) {
-  //   sma.insert({t, Ochl(0, t, 0, 0, 0, 0, 0)});
-  // }
-
   for (int i = 0; i < 4; i++) {
     threads.push_back(std::thread(worker, q1, p1));
   }

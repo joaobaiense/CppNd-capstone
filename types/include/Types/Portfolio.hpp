@@ -48,7 +48,7 @@ class Portfolio {
 
   void update(Ochl *ref);
 
-  virtual void runAlgorithm(Ochl *ref) = 0;
+  virtual void runAlgorithm(Ochl *ref){};
 
   double getNetValue();
 
